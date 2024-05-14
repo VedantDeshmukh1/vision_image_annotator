@@ -1,4 +1,4 @@
-# vision_image_annotator
+
 # Image Auto-Annotation 👁️‍🗨️👁️‍🗨️
 
 This is an image auto-annotation application built using Streamlit, Langchain, and Google Generative AI. It allows users to provide an image URL and specify classes, and the app will generate annotations and bounding boxes for each class using the Google Generative AI model.
