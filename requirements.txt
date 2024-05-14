@@ -7,3 +7,4 @@ python-dotenv
 langchain
 google-cloud-vision
 langchain_google_genai
+opencv-python
