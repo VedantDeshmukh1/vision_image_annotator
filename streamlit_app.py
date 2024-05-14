@@ -35,7 +35,7 @@ def app():
         classes = [c.strip() for c in classes_input.split(",")]
 
         # Initialize the Google Generative AI model
-        llm = GoogleGenerativeAI(model="gemini-1.5-pro", google_api_key=google_api_key)
+        llm = GoogleGenerativeAI(model="gemini-pro", google_api_key=google_api_key)
 
         # Create the annotation generation chain
         annotation_chain = LLMChain(llm=llm, prompt=prompt_template)
