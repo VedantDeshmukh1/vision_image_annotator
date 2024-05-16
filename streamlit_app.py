@@ -11,7 +11,7 @@ import numpy as np
 prompt_template = PromptTemplate(
     input_variables=["image_url", "classes"],
     template="""
-    Given the image at {image_url}, annotate it with the following classes: {classes}.
+    Given the image at {image_url}, annotate all objects belonging to the following classes: {classes}.
     Provide the annotations in the format:
     Class: [class_name]
     Annotation: [annotation_text]
@@ -40,15 +40,17 @@ def app():
         # Create the annotation generation chain
         annotation_chain = LLMChain(llm=llm, prompt=prompt_template)
 
-        # Generate annotations for each class
+        # Generate annotations for all classes
+        response = annotation_chain.run(image_url=image_url, classes=", ".join(classes))
         annotations = []
-        for class_name in classes:
-            response = annotation_chain.run(image_url=image_url, classes=class_name)
-            lines = response.strip().split("\n")
-            class_name = lines[0].split(": ")[1]
-            annotation = lines[1].split(": ")[1]
-            bbox_coords = [int(x) for x in lines[2].split(": ")[1].split(", ")]
-            annotations.append((class_name, annotation, bbox_coords))
+        for line in response.strip().split("\n"):
+            if line.startswith("Class:"):
+                class_name = line.split(": ")[1]
+            elif line.startswith("Annotation:"):
+                annotation = line.split(": ")[1]
+            elif line.startswith("Bounding Box:"):
+                bbox_coords = [int(x) for x in line.split(": ")[1].split(", ")]
+                annotations.append((class_name, annotation, bbox_coords))
 
         # Download the image
         response = requests.get(image_url)
