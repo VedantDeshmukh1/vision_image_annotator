@@ -11,7 +11,7 @@ import numpy as np
 prompt_template = PromptTemplate(
     input_variables=["image_url", "classes"],
     template="""
-    Given the image at {image_url}, annotate all objects belonging to the following classes: {classes}.
+    Given the image at {image_url}, annotate all objects to the maximum accuracy belonging to the following classes: {classes}.
     Provide the annotations in the format:
     Class: [class_name]
     Annotation: [annotation_text]
