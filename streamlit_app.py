@@ -25,7 +25,7 @@ prompt_template = PromptTemplate(
 # Function to get the Gemini Vision response
 def get_gemini_response(input, image, classes):
     google_api_key = st.secrets["api_key"]
-    model = genai.GenerativeModel('gemini-pro-vision')
+    model = genai.GenerativeModel('gemini-vision-v2')
     if input != "":
         response = model.generate_content([input, image, classes])
     else:
