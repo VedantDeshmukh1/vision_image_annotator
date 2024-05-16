@@ -6,81 +6,68 @@ import cv2
 import io
 import requests
 import numpy as np
-import os
-import google.generativeai as genai
-
-
 
 # Define the prompt template
 prompt_template = PromptTemplate(
-    input_variables=["image", "classes"],
+    input_variables=["image_url", "classes"],
     template="""
-    Given the image, annotate it with the following classes: {classes}.
+    Given the image at {image_url}, annotate it with the following classes: {classes}.
     Provide the annotations in the format:
     Class: [class_name]
-    Bounding Box: [x_min], [y_min], [x_max], [y_max]
+    Annotation: [annotation_text]
+    Bounding Box: [x1], [y1], [x2], [y2]
     """
 )
 
-# Function to get the Gemini Vision response
-def get_gemini_response(input, image, classes):
-    google_api_key = st.secrets["api_key"]
-    model = genai.GenerativeModel('gemini-pro-vision')
-    if input != "":
-        response = model.generate_content([input, image, classes])
-    else:
-        response = model.generate_content([image, classes])
-    return response.text
-
 # Define the Streamlit app
 def app():
+    st.title("Image Auto-Annotation App")
+
+    # Retrieve the secret API key
     google_api_key = st.secrets["api_key"]
-    st.set_page_config(page_title="Gemini Image Annotation App")
-    st.header("Image Annotation App")
 
     # Get user input
-    input = st.text_input("Input Prompt:", key="input")
-    classes = st.text_input("Classes to Annotate (comma-separated):", key="classes")
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png", "pdf"])
-    image = ""
+    image_url = st.text_input("Enter the image URL:")
+    classes_input = st.text_input("Enter the classes (comma-separated):")
 
-    if uploaded_file is not None:
-        # Read the uploaded image
-        img_bytes = uploaded_file.read()
-        image = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
-        st.image(image, caption="Uploaded Image.", use_column_width=True)
-
-    submit = st.button("Annotate Image")
-
-    if submit:
+    if image_url and classes_input:
         # Split the classes input into a list
-        class_list = [c.strip() for c in classes.split(",")]
+        classes = [c.strip() for c in classes_input.split(",")]
 
-        # Get the Gemini Vision response
-        response = get_gemini_response(input, image, class_list)
+        # Initialize the Google Generative AI model
+        llm = GoogleGenerativeAI(model="gemini-pro", google_api_key=google_api_key)
 
-        # Parse the response to extract annotations
+        # Create the annotation generation chain
+        annotation_chain = LLMChain(llm=llm, prompt=prompt_template)
+
+        # Generate annotations for each class
         annotations = []
-        lines = response.strip().split("\n")
-        for i in range(0, len(lines), 2):
-            class_name = lines[i].split(": ")[1]
-            bbox_coords = [float(x) for x in lines[i+1].split(": ")[1].split(", ")]
-            annotations.append((class_name, bbox_coords))
+        for class_name in classes:
+            response = annotation_chain.run(image_url=image_url, classes=class_name)
+            lines = response.strip().split("\n")
+            class_name = lines[0].split(": ")[1]
+            annotation = lines[1].split(": ")[1]
+            bbox_coords = [int(x) for x in lines[2].split(": ")[1].split(", ")]
+            annotations.append((class_name, annotation, bbox_coords))
+
+        # Download the image
+        response = requests.get(image_url)
+        img_bytes = io.BytesIO(response.content)
+        img = cv2.imdecode(np.frombuffer(img_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
 
         # Draw bounding boxes on the image
-        for class_name, bbox_coords in annotations:
-            x_min, y_min, x_max, y_max = bbox_coords
-            x_min, y_min, x_max, y_max = int(x_min), int(y_min), int(x_max), int(y_max)
-            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (36, 255, 12), 2)
-            cv2.putText(image, class_name, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
+        for class_name, annotation, bbox_coords in annotations:
+            x1, y1, x2, y2 = bbox_coords
+            cv2.rectangle(img, (x1, y1), (x2, y2), (36, 255, 12), 2)
+            cv2.putText(img, class_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
 
         # Display the annotated image
-        st.image(image, use_column_width=True)
+        st.image(img, use_column_width=True)
 
         # Display the annotations
-        st.subheader("Annotations")
-        for class_name, bbox_coords in annotations:
+        for class_name, annotation, bbox_coords in annotations:
             st.write(f"Class: {class_name}")
+            st.write(f"Annotation: {annotation}")
             st.write(f"Bounding Box: {bbox_coords[0]}, {bbox_coords[1]}, {bbox_coords[2]}, {bbox_coords[3]}")
             st.write("---")
 
